@@ -19,13 +19,26 @@ def get_aa_window(window_size: int, aa_seq: str, aa_position: int, start_pos: bo
     window of set window_size left and right of the slicing position
     """
     if __name__ == 'AA_window':
+
         start = aa_position - window_size - 1
-        stop = aa_position + window_size - 1
+        start_of_stop = aa_position - 1
         if start_pos is False:
             start = start + 1
-            stop = stop + 1
-        aa_window_part_left, aa_window_part_right = aa_seq[start: start + window_size], aa_seq[stop - window_size: stop]
-        return aa_window_part_left, aa_window_part_right
+            start_of_stop = start_of_stop + 1
+
+        list_left_right_window = []
+        for pos in [start, start_of_stop]:
+            if pos <= -4:                              # no AA at label window side
+                list_left_right_window.append(np.nan)
+            elif pos < 0:                              # less than 4 AA at label window side
+                list_left_right_window.append(aa_seq[0: pos + window_size])
+            else:                                      # 4 AA at label window side
+                list_left_right_window.append(aa_seq[pos: pos + window_size])
+
+        if list_left_right_window is []:
+            list_left_right_window = [np.nan, np.nan]
+
+        return list_left_right_window
 
 
 def get_aa_window_labels(window_size: int, aa_seq: str, name_label: str, tmd_jmd_intersect: int, start_pos: bool,
@@ -48,13 +61,14 @@ def get_aa_window_labels(window_size: int, aa_seq: str, name_label: str, tmd_jmd
     """
 
     if __name__ == 'AA_window':
-        columns_window = ["ID", "window_left", "window_right", "label", column_pos_in_seq]
+        columns_window = ["ID", "window_left", "window_right", "label", column_pos_in_seq, "norm_intersect_pos"]
         if more_columns is not None:
             columns_window.extend(list(more_columns.keys()))
 
         # generate positive-label
         window_seq = get_aa_window(window_size, aa_seq=aa_seq, aa_position=tmd_jmd_intersect, start_pos=start_pos)
-        list_labels = [[f"{name_label}__0", window_seq[0], window_seq[1], 1, tmd_jmd_intersect]]
+        list_labels = [[f"{name_label}__0", window_seq[0], window_seq[1], 1, tmd_jmd_intersect,
+                        tmd_jmd_intersect/len(aa_seq)]]
         if more_columns is not None:
             list_labels.extend(list(more_columns.values()))
 
@@ -66,8 +80,10 @@ def get_aa_window_labels(window_size: int, aa_seq: str, name_label: str, tmd_jmd
             right_shift_window_seq = get_aa_window(window_size, aa_seq=aa_seq, aa_position=tmd_jmd_intersect + i,
                                                    start_pos=start_pos)
             sublist = [
-                [f"{name_label}__-{i}", left_shift_window_seq[0], left_shift_window_seq[1], 0, tmd_jmd_intersect - i],
-                [f"{name_label}__{i}", right_shift_window_seq[0], right_shift_window_seq[1], 0, tmd_jmd_intersect + i]]
+                [f"{name_label}__-{i}", left_shift_window_seq[0], left_shift_window_seq[1], 0, tmd_jmd_intersect - i,
+                 (tmd_jmd_intersect-i)/len(aa_seq)],
+                [f"{name_label}__{i}", right_shift_window_seq[0], right_shift_window_seq[1], 0, tmd_jmd_intersect + i,
+                 (tmd_jmd_intersect+i)/len(aa_seq)]]
             if more_columns is not None:
                 sublist.extend(list(more_columns.values()))
             list_labels.extend(sublist)
